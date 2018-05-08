@@ -1,33 +1,28 @@
 var crypto = require("crypto");
 
-
 blockChain = new BlockChain();
 
 blockChain.addIntoChain(generateTransaction("syoui", "liaoliao", 20000));
-blockChain.addIntoChain(generateTransaction("syoui", "gee", 20000));
-blockChain.addIntoChain(generateTransaction("syoui", "jesuca", 31000));
-blockChain.addIntoChain(generateTransaction("syoui", "xiaoman", 10000));
-blockChain.addIntoChain(generateTransaction("syoui", "lily", 5000));
-blockChain.addIntoChain(generateTransaction("syoui", "gemo", 400));
-blockChain.addIntoChain(generateTransaction("syoui", "ruby", 420));
-blockChain.addIntoChain(generateTransaction("syoui", "cisco", 230));
-
 
 var len = (blockChain.blockChain.length);
-
-for (i = 0; i < len; i++) {
-    console.log(blockChain.blockChain[i].toString());
-}
-
-
-
-
 //转换为哈希值
 function convertIntoHash(str) {
     var sha512 = crypto.createHash('sha512');
     sha512.update(str);
     return sha512.digest('hex');
 };
+
+
+function generateUUID() {
+    var material = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    var len = material.length;
+    var finalStr = "";
+    for (var i = 0; i < 32; i++) {
+        var index = Math.floor(Math.random() * 33)
+        finalStr += material[index];
+    }
+    return finalStr;
+}
 
 
 //生成一个交易对象
@@ -65,7 +60,6 @@ function BlockChain() {
         }
     }
 
-
     BlockChain.prototype.workProof = function() {
         var proof = 0;
         lastProof = this.getLastBlock() == null ? -1 : this.getLastBlock().proof
@@ -93,6 +87,11 @@ function BlockChain() {
         return res.slice(0, 4) == "0001"
     }
 
+    BlockChain.prototype.mine = function() {
+        var newTransaction = generateTransaction("0", generateUUID(), 1);
+        this.addIntoChain(newTransaction)
+    }
+
 };
 
 
@@ -114,4 +113,23 @@ function Block(_index, _transaction, _preHash, _proof) {
     Block.prototype.toString = function() {
         return JSON.stringify({ index: this.index, transaction: this.transaction, preHash: this.preHash, proof: this.proof });
     }
-}
+};
+
+
+var express = require('express');
+var app = express();
+
+app.get('/', function(req, res) {
+    res.send('hello world');
+});
+
+app.get('/mine', function(req, res) {
+    blockChain.mine();
+    res.send(blockChain.getLastBlock());
+});
+
+app.get('/chain', function(req, res) {
+    res.send(blockChain);
+});
+
+app.listen(3000);

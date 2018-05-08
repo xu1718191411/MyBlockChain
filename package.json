@@ -1,0 +1,22 @@
+{
+  "name": "myblockchain",
+  "version": "1.0.0",
+  "description": "Let it be Let it be Let it be Let it be",
+  "main": "hash.js",
+  "dependencies": {
+    "express": "^4.16.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node hash.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "origin"
+  },
+  "keywords": [
+    "syoui"
+  ],
+  "author": "syoui",
+  "license": "ISC"
+}
