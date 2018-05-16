@@ -84,7 +84,7 @@ function BlockChain() {
 
     BlockChain.prototype.validProof = function(lastProof, proof, lastHash) {
         res = convertIntoHash(lastProof + proof + lastHash + "");
-        return res.slice(0, 4) == "0001"
+        return res.slice(0, 4) == "2623"
     }
 
     BlockChain.prototype.mine = function() {
