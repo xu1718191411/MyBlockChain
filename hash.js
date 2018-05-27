@@ -2,7 +2,7 @@ var crypto = require("crypto");
 
 blockChain = new BlockChain();
 
-blockChain.addIntoChain(generateTransaction("syoui", "liaoliao", 20000));
+//blockChain.addIntoChain(generateTransaction("syoui", "liaoliao", 20000));
 
 var len = (blockChain.blockChain.length);
 //转换为哈希值
@@ -36,19 +36,23 @@ function generateTransaction(sender, receiver, amount) {
 };
 
 
+
 //生成一个区块链
 function BlockChain() {
 
     this.blockChain = [];
+    this.transaction = []
 
-    BlockChain.prototype.addIntoChain = function(transaction) {
+    BlockChain.prototype.addIntoChain = function(difficulty) {
         preHash = null;
         if (this.blockChain.length > 0) {
             preHash = convertIntoHash(this.blockChain[this.blockChain.length - 1].toString());
         }
 
-        var _proof = this.workProof();
-        block = new Block(this.blockChain.length, transaction, preHash, _proof);
+        var _proof = this.workProof(difficulty);
+
+        block = new Block(this.blockChain.length, this.transaction, preHash, _proof);
+        //verify
         this.blockChain.push(block);
     }
 
@@ -60,36 +64,66 @@ function BlockChain() {
         }
     }
 
-    BlockChain.prototype.workProof = function() {
+    BlockChain.prototype.workProof = function(difficulty) {
         var proof = 0;
-        lastProof = this.getLastBlock() == null ? -1 : this.getLastBlock().proof
+        lastProof = this.getLastBlock() == undefined ? "000000" : this.getLastBlock().proof
         lastBlock = this.getLastBlock()
 
-
-
-        if (lastBlock == null) {
-            lastHash = null
+        if (lastBlock == undefined) {
+            lastHash = 0
         } else {
             lastHash = convertIntoHash(lastBlock.toString())
         }
 
-        res = this.validProof(lastProof, proof, lastHash)
+        res = this.validProof(lastProof, proof, lastHash,difficulty)
         while (!res) {
             proof++;
-            res = this.validProof(lastProof, proof, lastHash)
+            res = this.validProof(lastProof, proof, lastHash,difficulty)
         }
 
+        if(this.getLastBlock() != undefined && lastProof != (this.getLastBlock().proof)){
+                console.log("已经有人比你提前算好了")
+        }else{
+                console.log("你是第一个算好的人,恭喜你挖矿成功")
+        }
+
+        console.log("求得工作证明")
+        console.log(proof)
         return proof;
     }
 
-    BlockChain.prototype.validProof = function(lastProof, proof, lastHash) {
+    BlockChain.prototype.validProof = function(lastProof, proof, lastHash,difficulty) {
         res = convertIntoHash(lastProof + proof + lastHash + "");
-        return res.slice(0, 4) == "2623"
+        switch(difficulty){
+            case 1:
+            return res.slice(0, 2) == "26"
+            break;
+            case 2:
+            return res.slice(0, 3) == "262"
+            break;
+            case 3:
+            return res.slice(0, 4) == "2623"
+            break;
+            case 4:
+            return res.slice(0, 5) == "26231"
+            break;
+            case 5:
+            return res.slice(0, 6) == "262312"
+            break;
+        }
+        
     }
 
-    BlockChain.prototype.mine = function() {
-        var newTransaction = generateTransaction("0", generateUUID(), 1);
-        this.addIntoChain(newTransaction)
+    BlockChain.prototype.mine = function(difficulty,cb) {
+        if(this.transaction == undefined || this.transaction.length == 0){
+            cb(null,"没有多余的交易了")
+        }else{
+            var newTransaction = generateTransaction("0", generateUUID(), 1);
+            this.transaction.push(newTransaction)
+            this.addIntoChain(difficulty)
+            cb("恭喜你挖矿成功",null)
+            this.transaction = []
+        }  
     }
 
 };
@@ -118,15 +152,61 @@ function Block(_index, _transaction, _preHash, _proof) {
 
 var express = require('express');
 var app = express();
+var bodyParser = require('body-parser')
+
+var fs = require('fs'); // this engine requires the fs module
+app.engine('html', function (filePath, options, callback) { // define the template engine
+  fs.readFile(filePath, function (err, content) {
+    if (err) return callback(new Error(err));
+    // this is an extremely simple template engine
+    var rendered = content.toString().replace('#title#', ''+ options.title +'')
+    .replace('#message#', ''+ options.message +'');
+    return callback(null, rendered);
+  });
+});
+app.set('views', './views'); // specify the views directory
+app.set('view engine', 'html'); // register the template engine
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.json())
+
+
 
 app.get('/', function(req, res) {
-    res.send('hello world');
+    res.send("Hello World");
 });
 
+app.get("/newTransacation",function(req,res){
+    res.render('newTransacation', { title: 'Hey', message: 'Hello there!'});
+})
+
+app.post("/registeTransacation",function(req,res){
+    if(req.body != undefined){
+        var newTransacation = generateTransaction(req.body.sender,req.body.receiver,req.body.amount);
+        blockChain.transaction.push(newTransacation)
+    }
+    res.redirect("/allTransacation")
+})
+
+app.get("/allTransacation",function(req,res){
+    res.send(blockChain.transaction);
+})
+
 app.get('/mine', function(req, res) {
-    blockChain.mine();
-    res.send(blockChain.getLastBlock());
+    res.render('mine', { title: 'Hey', message: 'Hello there!'});
 });
+
+app.post("/mine",function(req,res){
+    var difficulty = parseInt(req.body.difficulty);
+    console.log(difficulty)
+
+    blockChain.mine(difficulty,function(result,err){
+        if(err){
+            res.send(err)
+        }else{
+            res.send(blockChain.getLastBlock());
+        }
+    });
+})
 
 app.get('/chain', function(req, res) {
     res.send(blockChain);
