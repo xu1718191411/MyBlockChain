@@ -43,18 +43,6 @@ function BlockChain() {
     this.blockChain = [];
     this.transaction = []
 
-    BlockChain.prototype.addIntoChain = function(difficulty) {
-        preHash = null;
-        if (this.blockChain.length > 0) {
-            preHash = convertIntoHash(this.blockChain[this.blockChain.length - 1].toString());
-        }
-
-        var _proof = this.workProof(difficulty);
-
-        block = new Block(this.blockChain.length, this.transaction, preHash, _proof);
-        //verify
-        this.blockChain.push(block);
-    }
 
     BlockChain.prototype.getLastBlock = function() {
         if (this.blockChain.length > 0) {
@@ -64,7 +52,8 @@ function BlockChain() {
         }
     }
 
-    BlockChain.prototype.workProof = function(difficulty) {
+    BlockChain.prototype.workProof = function(difficulty,cb) {
+
         var proof = 0;
         lastProof = this.getLastBlock() == undefined ? "000000" : this.getLastBlock().proof
         lastBlock = this.getLastBlock()
@@ -83,13 +72,12 @@ function BlockChain() {
 
         if(this.getLastBlock() != undefined && lastProof != (this.getLastBlock().proof)){
                 console.log("已经有人比你提前算好了")
+                cb("已经有人比你提前算好了",null)
         }else{
                 console.log("你是第一个算好的人,恭喜你挖矿成功")
+                cb(null,proof)
         }
 
-        console.log("求得工作证明")
-        console.log(proof)
-        return proof;
     }
 
     BlockChain.prototype.validProof = function(lastProof, proof, lastHash,difficulty) {
@@ -116,13 +104,37 @@ function BlockChain() {
 
     BlockChain.prototype.mine = function(difficulty,cb) {
         if(this.transaction == undefined || this.transaction.length == 0){
-            cb(null,"没有多余的交易了")
+            cb("没有多余的交易了",null)
         }else{
             var newTransaction = generateTransaction("0", generateUUID(), 1);
-            this.transaction.push(newTransaction)
-            this.addIntoChain(difficulty)
-            cb("恭喜你挖矿成功",null)
-            this.transaction = []
+            var tmpTransacation = []
+            tmpTransacation.push(this.transaction)
+            tmpTransacation.push(newTransaction)
+            
+            this.workProof(difficulty,function(err,proof){
+                    
+                    if(err != null){
+                        cb(err,null)
+                        return;
+                    }
+
+                    if(err == null){
+                        //证明POW成功计算到算是成功挖到了矿了
+                        var preHash = null;
+                        var index = 0;
+                        if (blockChain.length > 0) {
+                            preHash = convertIntoHash(this.blockChain[this.blockChain.length - 1].toString());
+                            index = blockChain.getLastBlock().index + 1
+                        }
+
+                        var newBlock = new Block(index, tmpTransacation, preHash, proof);
+                        blockChain.blockChain.push(newBlock)
+                        blockChain.transaction = []
+                        cb(null,newBlock)
+                    }
+            })
+            
+         
         }  
     }
 
@@ -152,7 +164,7 @@ function Block(_index, _transaction, _preHash, _proof) {
 
 var express = require('express');
 var app = express();
-var bodyParser = require('body-parser')
+var bodyParser = require('body-parser');
 
 var fs = require('fs'); // this engine requires the fs module
 app.engine('html', function (filePath, options, callback) { // define the template engine
@@ -199,7 +211,7 @@ app.post("/mine",function(req,res){
     var difficulty = parseInt(req.body.difficulty);
     console.log(difficulty)
 
-    blockChain.mine(difficulty,function(result,err){
+    blockChain.mine(difficulty,function(err,block){
         if(err){
             res.send(err)
         }else{
